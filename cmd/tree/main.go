@@ -9,19 +9,39 @@ import (
 	"path/filepath"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slices"
 )
 
+type Ignores []string
+
 var (
-	out   io.Writer = os.Stdout
-	color int
-	level int
-	dirs  = 0
-	files = 0
-	bar   = "├── "
-	hor   = "│   "
-	space = "    "
-	end   = "└── "
+	out     io.Writer = os.Stdout
+	ignores Ignores
+	color   int
+	level   int
+	dirs    = 0
+	files   = 0
+	bar     = "├── "
+	hor     = "│   "
+	space   = "    "
+	end     = "└── "
 )
+
+func (i *Ignores) String() string {
+	return fmt.Sprintf("%+v", *i)
+}
+
+func (i *Ignores) Set(v string) error {
+	*i = append(*i, v)
+	return nil
+}
+
+func (i *Ignores) Init() error {
+	if len(*i) == 0 {
+		*i = []string{".git", "node_modules"}
+	}
+	return nil
+}
 
 func run(dirName string) int {
 	if dirName == "" {
@@ -45,6 +65,9 @@ func run(dirName string) int {
 
 func tree(l int, prefix, dirName string) error {
 	if level != -1 && l >= level {
+		return nil
+	}
+	if slices.Contains(ignores, dirName) {
 		return nil
 	}
 	files, err := ioutil.ReadDir(dirName)
@@ -88,6 +111,7 @@ func printDir(mark, dirName string) {
 func init() {
 	flag.IntVar(&color, "color", 34, "directory color\n\n30  black\n31  red\n32  green\n33  yellow\n34  blue\n35  magenta\n36  cyaan\n37  white\n")
 	flag.IntVar(&level, "L", -1, "level")
+	flag.Var(&ignores, "ignore", "ignore keyword")
 	flag.Usage = func() {
 		fmt.Printf("Usage: %v  [-c color] [-L level] directory \n", os.Args[0])
 		flag.PrintDefaults()
@@ -97,6 +121,7 @@ func init() {
 
 func main() {
 	flag.Parse()
+	ignores.Init()
 	root := flag.Arg(0)
 	os.Exit(run(root))
 }
